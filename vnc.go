@@ -30,11 +30,7 @@ func main() {
 
 	c.SetEncodings(EncodingTypePseudoCursor, EncodingTypeRaw)
 
-	c.SetClipboard("Hello World")
-	c.PressKey(xkControlL)
-	c.PressKey('V')
-	c.ReleaseKey('V')
-	c.ReleaseKey(xkControlL)
+	TypeString(c, "Hello World[Shift+Left][Shift+Left][Ctrl+X][Ctrl+V]!")
 	select {}
 
 	c.RequestFramebufferUpdate(c.FramebufferSize(), false)
