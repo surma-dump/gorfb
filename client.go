@@ -189,3 +189,17 @@ func (c *Client) SetMouseState(pos image.Point, ms MouseState) {
 		MouseState: ms,
 	}).WriteTo(c)
 }
+
+func (c *Client) PressKey(key int) {
+	(&KeyEventMessage{
+		Key:     key,
+		Pressed: true,
+	}).WriteTo(c)
+}
+
+func (c *Client) ReleaseKey(key int) {
+	(&KeyEventMessage{
+		Key:     key,
+		Pressed: false,
+	}).WriteTo(c)
+}

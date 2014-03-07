@@ -30,3 +30,10 @@ func Scroll(c *Client, d Direction) {
 	}
 	c.SetMouseState(c.MousePosition(), MouseState{})
 }
+
+func TypeString(c *Client, s string) {
+	for _, k := range s {
+		c.PressKey(int(k))
+		c.ReleaseKey(int(k))
+	}
+}

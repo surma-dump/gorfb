@@ -29,10 +29,13 @@ func main() {
 	log.Printf("BPP: %d, Depth: %d, Name: %s", c.PixelFormat().BitsPerPixel, c.PixelFormat().Depth, c.DesktopName())
 
 	c.SetEncodings(EncodingTypePseudoCursor, EncodingTypeRaw)
-	for {
-		Scroll(c, DirectionDown)
-		time.Sleep(1 * time.Second)
-	}
+
+	c.SetClipboard("Hello World")
+	c.PressKey(xkControlL)
+	c.PressKey('V')
+	c.ReleaseKey('V')
+	c.ReleaseKey(xkControlL)
+	select {}
 
 	c.RequestFramebufferUpdate(c.FramebufferSize(), false)
 	go func() {

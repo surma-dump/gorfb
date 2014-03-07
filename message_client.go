@@ -179,3 +179,35 @@ func (ms MouseState) Unset(idx int) MouseState {
 	ms.Buttons[idx] = false
 	return ms
 }
+
+type KeyEventMessage struct {
+	Key     int
+	Pressed bool
+}
+
+type rawKeyEventMessage struct {
+	MessageType MessageType
+	DownFlag    uint8
+	Padding     [2]byte
+	Key         uint32
+}
+
+func (kem KeyEventMessage) WriteTo(c *Client) error {
+	raw := &rawKeyEventMessage{
+		MessageType: ClientMessageTypeKeyEvent,
+		DownFlag:    0,
+		Key:         uint32(kem.Key),
+	}
+	if kem.Pressed {
+		raw.DownFlag = 1
+	}
+	return binary.Write(c, binary.BigEndian, raw)
+}
+
+func (kem *KeyEventMessage) ReadFrom(c *Client) error {
+	panic("Not implemented")
+}
+
+func (kem KeyEventMessage) String() string {
+	return fmt.Sprintf("%#v", kem)
+}
