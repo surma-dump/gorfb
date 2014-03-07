@@ -29,11 +29,25 @@ func main() {
 	log.Printf("%d x %d", r.Dx(), r.Dy())
 	log.Printf("BPP: %d, Depth: %d, Name: %s", c.PixelFormat.BitsPerPixel, c.PixelFormat.Depth, c.Name)
 
-	c.RequestFramebufferUpdate(c.Framebuffer.Bounds().Canon())
+	c.SetEncodings(EncodingTypeRaw)
+	time.Sleep(5 * time.Second)
+	c.RequestFramebufferUpdate(c.Framebuffer.Bounds().Canon(), false)
 	<-c.EvCh
 	log.Printf("Received event")
 
 	f, err := os.Create(time.Now().String() + ".png")
+	if err != nil {
+		log.Fatalf("Could not open file: %s", err)
+	}
+	defer f.Close()
+	png.Encode(f, c.Framebuffer)
+
+	time.Sleep(10 * time.Second)
+	c.RequestFramebufferUpdate(c.Framebuffer.Bounds().Canon(), false)
+	<-c.EvCh
+	log.Printf("Received event")
+
+	f, err = os.Create(time.Now().String() + ".png")
 	if err != nil {
 		log.Fatalf("Could not open file: %s", err)
 	}

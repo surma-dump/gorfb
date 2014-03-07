@@ -59,8 +59,7 @@ func (sstm SupportedSecurityTypesMessage) WriteTo(c *Client) error {
 
 func (sstm *SupportedSecurityTypesMessage) ReadFrom(c *Client) error {
 	var numSecurityTypes byte
-	err := binary.Read(c, binary.BigEndian, &numSecurityTypes)
-	if err != nil {
+	if err := binary.Read(c, binary.BigEndian, &numSecurityTypes); err != nil {
 		return err
 	}
 
@@ -69,8 +68,7 @@ func (sstm *SupportedSecurityTypesMessage) ReadFrom(c *Client) error {
 	}
 
 	sstm.SecurityTypeList = make(SecurityTypeList, numSecurityTypes)
-	err = binary.Read(c, binary.BigEndian, sstm.SecurityTypeList)
-	return err
+	return binary.Read(c, binary.BigEndian, sstm.SecurityTypeList)
 }
 
 func (sstm SupportedSecurityTypesMessage) String() string {
@@ -82,24 +80,22 @@ type ErrorMessage struct {
 }
 
 func (em ErrorMessage) WriteTo(c *Client) error {
-	err := binary.Write(c, binary.BigEndian, int32(len(em.Message)))
-	if err != nil {
+	if err := binary.Write(c, binary.BigEndian, int32(len(em.Message))); err != nil {
 		return err
 	}
 
-	_, err = io.WriteString(c, em.Message)
+	_, err := io.WriteString(c, em.Message)
 	return err
 }
 
 func (em *ErrorMessage) ReadFrom(c *Client) error {
 	var messageLength byte
-	err := binary.Read(c, binary.BigEndian, &messageLength)
-	if err != nil {
+	if err := binary.Read(c, binary.BigEndian, &messageLength); err != nil {
 		return err
 	}
 
 	raw := make([]byte, messageLength)
-	_, err = io.ReadFull(c, raw)
+	_, err := io.ReadFull(c, raw)
 	em.Message = string(raw)
 	return err
 }
@@ -140,8 +136,7 @@ func (srm SecurityResultMessage) WriteTo(c *Client) error {
 }
 
 func (srm *SecurityResultMessage) ReadFrom(c *Client) error {
-	err := binary.Read(c, binary.BigEndian, &srm.SecurityResult)
-	if err != nil {
+	if err := binary.Read(c, binary.BigEndian, &srm.SecurityResult); err != nil {
 		return err
 	}
 
@@ -196,20 +191,17 @@ func (sim *ServerInitMessage) ReadFrom(c *Client) error {
 
 	sim.FramebufferWidth, sim.FramebufferHeight = int(width), int(height)
 
-	err = (&sim.PixelFormat).ReadFrom(c)
-	if err != nil {
+	if err := (&sim.PixelFormat).ReadFrom(c); err != nil {
 		return err
 	}
 
 	var nameLength uint32
-	err = binary.Read(c, binary.BigEndian, &nameLength)
-	if err != nil {
+	if err := binary.Read(c, binary.BigEndian, &nameLength); err != nil {
 		return err
 	}
 
 	rawName := make([]byte, nameLength)
-	err = binary.Read(c, binary.BigEndian, rawName)
-	if err != nil {
+	if err := binary.Read(c, binary.BigEndian, rawName); err != nil {
 		return err
 	}
 	sim.Name = string(rawName)
@@ -242,8 +234,7 @@ func (pf PixelFormat) WriteTo(c *Client) error {
 func (pf *PixelFormat) ReadFrom(c *Client) error {
 	var raw rawPixelFormat
 
-	err := binary.Read(c, binary.BigEndian, &raw)
-	if err != nil {
+	if err := binary.Read(c, binary.BigEndian, &raw); err != nil {
 		return err
 	}
 
@@ -320,15 +311,14 @@ func (fum *FramebufferUpdateMessage) ReadFrom(c *Client) error {
 	fum.Rectangles = make([]Rectangle, raw.NumRectangles)
 	for i := range fum.Rectangles {
 		var raw rawRectangleHeader
-		err := binary.Read(c, binary.BigEndian, &raw)
-		if err != nil {
+		if err := binary.Read(c, binary.BigEndian, &raw); err != nil {
 			return err
 		}
 		r := &fum.Rectangles[i]
 		r.X, r.Y = int(raw.X), int(raw.Y)
 		r.Width, r.Height = int(raw.Width), int(raw.Height)
 
-		enc, ok := defaultEncodings[raw.EncodingType]
+		enc, ok := defaultEncodings[EncodingType(raw.EncodingType)]
 		if !ok {
 			return fmt.Errorf("Unknown encoding")
 		}
@@ -354,4 +344,34 @@ type rawRectangleHeader struct {
 	X, Y          uint16
 	Width, Height uint16
 	EncodingType  int32
+}
+
+type SetEncodingsMessage struct {
+	EncodingTypes []EncodingType
+}
+
+type rawSetEncodingsMessage struct {
+	MessageType  uint8
+	Padding      byte
+	NumEncodings uint16
+}
+
+func (sem SetEncodingsMessage) WriteTo(c *Client) error {
+	raw := &rawSetEncodingsMessage{
+		MessageType:  2,
+		NumEncodings: uint16(len(sem.EncodingTypes)),
+	}
+	if err := binary.Write(c, binary.BigEndian, &raw); err != nil {
+		return err
+	}
+
+	return binary.Write(c, binary.BigEndian, sem.EncodingTypes)
+}
+
+func (sem *SetEncodingsMessage) ReadFrom(c *Client) error {
+	panic("Not implemented")
+}
+
+func (sem SetEncodingsMessage) String() string {
+	return fmt.Sprintf("%#v", sem)
 }

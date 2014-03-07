@@ -16,6 +16,31 @@ type Client struct {
 	PixelFormat PixelFormat
 	Name        string
 	Framebuffer draw.Image
+
+	unreadByte    byte
+	hasUnreadByte bool
+}
+
+func (c *Client) Read(d []byte) (int, error) {
+	if len(d) == 0 {
+		return 0, nil
+	}
+	n1 := 0
+	if c.hasUnreadByte {
+		d[0] = c.unreadByte
+		c.hasUnreadByte = false
+		n1 += 1
+	}
+	n2, err := c.ReadWriteCloser.Read(d[n1:])
+	return n1 + n2, err
+}
+
+func (c *Client) Unread(d byte) {
+	if c.hasUnreadByte {
+		panic("Can only unread one byte")
+	}
+	c.hasUnreadByte = true
+	c.unreadByte = d
 }
 
 func (c *Client) Init() error {
@@ -90,6 +115,7 @@ func (c *Client) worker() {
 			log.Printf("Failed reading message: %s", err)
 			return
 		}
+		c.Unread(messageType)
 
 		switch messageType {
 		case 0:
@@ -110,13 +136,19 @@ func (c *Client) worker() {
 	}
 }
 
-func (c *Client) RequestFramebufferUpdate(r image.Rectangle) {
+func (c *Client) RequestFramebufferUpdate(r image.Rectangle, incremental bool) {
 	r = r.Canon()
 	(&FramebufferUpdateRequestMessage{
 		X:           r.Min.X,
 		Y:           r.Min.Y,
 		Width:       r.Dx(),
 		Height:      r.Dy(),
-		Incremental: true,
+		Incremental: incremental,
+	}).WriteTo(c)
+}
+
+func (c *Client) SetEncodings(et ...EncodingType) {
+	(&SetEncodingsMessage{
+		EncodingTypes: et,
 	}).WriteTo(c)
 }

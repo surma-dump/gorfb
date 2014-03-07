@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"image/color"
 	"image/draw"
+	"io"
 	"log"
 )
 
@@ -28,12 +29,17 @@ func RawEncoding(c *Client, r *Rectangle) error {
 		PixelFormat: c.PixelFormat,
 		Data:        make([]byte, numBytes),
 	}
-	for y := 0; y < r.Height; y++ {
-		log.Printf("Reading row %d...", y)
-		binary.Read(c, binary.BigEndian, rd.Data[y*r.Width*bytesPerPixel:(y+1)*r.Width*bytesPerPixel])
-	}
-	return binary.Read(c, binary.BigEndian, rd.Data)
+	r.RectangleData = rd
+
+	_, err := io.ReadFull(c, rd.Data)
+	return err
 }
+
+type EncodingType int32
+
+const (
+	EncodingTypeRaw EncodingType = iota
+)
 
 type RawRectangleData struct {
 	X, Y          int
@@ -43,6 +49,11 @@ type RawRectangleData struct {
 }
 
 func (r RawRectangleData) Apply(img draw.Image) {
+	endian := binary.ByteOrder(binary.LittleEndian)
+	if r.PixelFormat.BigEndian {
+		endian = binary.BigEndian
+	}
+
 	bytesPerPixel := r.PixelFormat.BitsPerPixel / 8
 	for y := 0; y < r.Height; y++ {
 		for x := 0; x < r.Width; x++ {
@@ -51,7 +62,7 @@ func (r RawRectangleData) Apply(img draw.Image) {
 			var c color.Color
 			switch bytesPerPixel {
 			case 4:
-				pixelValue := binary.BigEndian.Uint32(pixelSlice)
+				pixelValue := endian.Uint32(pixelSlice)
 				c = color.RGBA{
 					R: uint8((pixelValue >> uint32(r.PixelFormat.RedShift)) & uint32(r.PixelFormat.RedMax)),
 					G: uint8((pixelValue >> uint32(r.PixelFormat.GreenShift)) & uint32(r.PixelFormat.GreenMax)),
@@ -66,6 +77,6 @@ func (r RawRectangleData) Apply(img draw.Image) {
 	}
 }
 
-var defaultEncodings = map[int32]Encoding{
-	0: RawEncoding,
+var defaultEncodings = map[EncodingType]Encoding{
+	EncodingTypeRaw: RawEncoding,
 }
