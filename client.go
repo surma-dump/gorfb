@@ -21,6 +21,7 @@ type Client struct {
 	name              string
 	framebufferWidth  int
 	framebufferHeight int
+	mousePosition     image.Point
 
 	unreadByte    byte
 	hasUnreadByte bool
@@ -36,6 +37,10 @@ func (c *Client) DesktopName() string {
 
 func (c *Client) FramebufferSize() image.Rectangle {
 	return image.Rect(0, 0, c.framebufferWidth, c.framebufferHeight)
+}
+
+func (c *Client) MousePosition() image.Point {
+	return c.mousePosition
 }
 
 func (c *Client) Read(d []byte) (int, error) {
@@ -174,5 +179,13 @@ func (c *Client) SetEncodings(et ...EncodingType) {
 func (c *Client) SetClipboard(text string) {
 	(&ClientCutTextMessage{
 		Text: text,
+	}).WriteTo(c)
+}
+
+func (c *Client) SetMouseState(pos image.Point, ms MouseState) {
+	c.mousePosition = pos
+	(&PointerEventMessage{
+		Position:   pos,
+		MouseState: ms,
 	}).WriteTo(c)
 }
