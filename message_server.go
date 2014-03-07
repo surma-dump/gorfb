@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"image/draw"
+	"io"
 )
 
 type FramebufferUpdateMessage struct {
@@ -15,7 +16,7 @@ func FramebufferUpdateMessageFactory() Message {
 }
 
 type rawFramebufferUpdateMessage struct {
-	MessageType   uint8
+	MessageType   MessageType
 	Padding       byte
 	NumRectangles uint16
 }
@@ -64,4 +65,66 @@ func (fum FramebufferUpdateMessage) ApplyAll(img draw.Image) {
 	for _, r := range fum.Rectangles {
 		r.Apply(img)
 	}
+}
+
+type BellMessage struct{}
+
+func BellMessageFactory() Message {
+	return &BellMessage{}
+}
+
+type rawBellMessage struct {
+	MessageType MessageType
+}
+
+func (bm BellMessage) WriteTo(c *Client) error {
+	panic("Not implemented")
+}
+
+func (bm *BellMessage) ReadFrom(c *Client) error {
+	var raw rawBellMessage
+	if err := binary.Read(c, binary.BigEndian, &raw); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (bm BellMessage) String() string {
+	return fmt.Sprintf("BELL!")
+}
+
+type ServerCutTextMessage struct {
+	Text string
+}
+
+func ServerCutTextMessageFactory() Message {
+	return &ServerCutTextMessage{}
+}
+
+type rawServerCutTextMessage struct {
+	MessageType MessageType
+	Padding     [3]byte
+	TextLength  uint32
+}
+
+func (sctm ServerCutTextMessage) WriteTo(c *Client) error {
+	panic("Not implemented")
+}
+
+func (sctm *ServerCutTextMessage) ReadFrom(c *Client) error {
+	var raw rawServerCutTextMessage
+	if err := binary.Read(c, binary.BigEndian, &raw); err != nil {
+		return err
+	}
+
+	txt := make([]byte, raw.TextLength)
+	if _, err := io.ReadFull(c, txt); err != nil {
+		return err
+	}
+	sctm.Text = string(txt)
+	return nil
+}
+
+func (sctm ServerCutTextMessage) String() string {
+	return fmt.Sprintf("%#v", sctm)
 }

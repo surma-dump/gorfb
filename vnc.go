@@ -2,7 +2,6 @@ package main
 
 import (
 	"image"
-	"image/png"
 	"log"
 	"net"
 	"os"
@@ -41,17 +40,15 @@ func main() {
 
 	img := image.NewRGBA(c.FramebufferSize())
 	for msg := range c.Messages {
-		log.Printf("Received event: %s", msg)
 
 		switch x := msg.(type) {
 		case *FramebufferUpdateMessage:
+			log.Printf("Updating framebuffer")
 			x.ApplyAll(img)
-			f, err := os.Create(time.Now().String() + ".png")
-			if err != nil {
-				log.Fatalf("Could not open file: %s", err)
-			}
-			defer f.Close()
-			png.Encode(f, img)
+		case *BellMessage:
+			log.Printf("Bell!")
+		case *ServerCutTextMessage:
+			log.Printf("New text in clipboard: %s", x.Text)
 		default:
 			log.Printf("Unhandled message")
 		}

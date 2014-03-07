@@ -16,15 +16,17 @@ type MessageFactory func() Message
 type MessageType uint8
 
 const (
-	MessageTypeFramebufferUpdate MessageType = iota
-	MessageTypeSetColorMapEntries
-	MessageTypeBell
-	MessageTypeServerCutText
+	ServerMessageTypeFramebufferUpdate MessageType = iota
+	ServerMessageTypeSetColorMapEntries
+	ServerMessageTypeBell
+	ServerMessageTypeServerCutText
 )
 
 var (
 	defaultMessageTypes = map[MessageType]MessageFactory{
-		MessageTypeFramebufferUpdate: FramebufferUpdateMessageFactory,
+		ServerMessageTypeFramebufferUpdate: FramebufferUpdateMessageFactory,
+		ServerMessageTypeBell:              BellMessageFactory,
+		ServerMessageTypeServerCutText:     ServerCutTextMessageFactory,
 	}
 )
 
