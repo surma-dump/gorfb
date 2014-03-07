@@ -16,6 +16,14 @@ type RectangleData interface {
 	Apply(draw.Image)
 }
 
+type EncodingType int32
+
+const (
+	EncodingTypeRaw EncodingType = iota
+
+	EncodingTypePseudoCursor EncodingType = -239
+)
+
 func RawEncoding(c *Client, r *Rectangle) error {
 	bytesPerPixel := c.PixelFormat.BitsPerPixel / 8
 	numPixels := r.Width * r.Height
@@ -35,12 +43,6 @@ func RawEncoding(c *Client, r *Rectangle) error {
 	return err
 }
 
-type EncodingType int32
-
-const (
-	EncodingTypeRaw EncodingType = iota
-)
-
 type RawRectangleData struct {
 	X, Y          int
 	Width, Height int
@@ -48,35 +50,55 @@ type RawRectangleData struct {
 	Data          []byte
 }
 
-func (r RawRectangleData) Apply(img draw.Image) {
+func (rrd RawRectangleData) Apply(img draw.Image) {
 	endian := binary.ByteOrder(binary.LittleEndian)
-	if r.PixelFormat.BigEndian {
+	if rrd.PixelFormat.BigEndian {
 		endian = binary.BigEndian
 	}
 
-	bytesPerPixel := r.PixelFormat.BitsPerPixel / 8
-	for y := 0; y < r.Height; y++ {
-		for x := 0; x < r.Width; x++ {
-			pixelIdx := y*r.Width + x
-			pixelSlice := r.Data[pixelIdx*bytesPerPixel : (pixelIdx+1)*bytesPerPixel]
+	bytesPerPixel := rrd.PixelFormat.BitsPerPixel / 8
+	for y := 0; y < rrd.Height; y++ {
+		for x := 0; x < rrd.Width; x++ {
+			pixelIdx := y*rrd.Width + x
+			pixelSlice := rrd.Data[pixelIdx*bytesPerPixel : (pixelIdx+1)*bytesPerPixel]
 			var c color.Color
 			switch bytesPerPixel {
 			case 4:
 				pixelValue := endian.Uint32(pixelSlice)
 				c = color.RGBA{
-					R: uint8((pixelValue >> uint32(r.PixelFormat.RedShift)) & uint32(r.PixelFormat.RedMax)),
-					G: uint8((pixelValue >> uint32(r.PixelFormat.GreenShift)) & uint32(r.PixelFormat.GreenMax)),
-					B: uint8((pixelValue >> uint32(r.PixelFormat.BlueShift)) & uint32(r.PixelFormat.BlueMax)),
+					R: uint8((pixelValue >> uint32(rrd.PixelFormat.RedShift)) & uint32(rrd.PixelFormat.RedMax)),
+					G: uint8((pixelValue >> uint32(rrd.PixelFormat.GreenShift)) & uint32(rrd.PixelFormat.GreenMax)),
+					B: uint8((pixelValue >> uint32(rrd.PixelFormat.BlueShift)) & uint32(rrd.PixelFormat.BlueMax)),
 					A: 255,
 				}
 			default:
-				log.Printf("Unsupported BPP %d", r.PixelFormat.BitsPerPixel)
+				log.Printf("Unsupported BPP %d", rrd.PixelFormat.BitsPerPixel)
 			}
-			img.Set(x+r.X, y+r.Y, c)
+			img.Set(x+rrd.X, y+rrd.Y, c)
 		}
 	}
 }
 
+func CursorPseudoEncoding(c *Client, r *Rectangle) error {
+	bytesPerPixel := c.PixelFormat.BitsPerPixel / 8
+	// TODO: Don't discard cursor image and mask
+	buf := make([]byte, r.Width*r.Height*bytesPerPixel)
+	if _, err := io.ReadFull(c, buf); err != nil {
+		return err
+	}
+	buf = buf[0 : (r.Width+7)/8*r.Height]
+	if _, err := io.ReadFull(c, buf); err != nil {
+		return err
+	}
+	r.RectangleData = &CursorRectangleData{}
+	return nil
+}
+
+type CursorRectangleData struct{}
+
+func (crd *CursorRectangleData) Apply(img draw.Image) {}
+
 var defaultEncodings = map[EncodingType]Encoding{
-	EncodingTypeRaw: RawEncoding,
+	EncodingTypeRaw:          RawEncoding,
+	EncodingTypePseudoCursor: CursorPseudoEncoding,
 }
