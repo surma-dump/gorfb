@@ -1,6 +1,7 @@
 package main
 
 import (
+	"image"
 	"image/png"
 	"log"
 	"net"
@@ -17,7 +18,7 @@ func main() {
 
 	c := &Client{
 		ReadWriteCloser: conn,
-		EvCh:            make(chan bool),
+		Messages:        make(chan Message),
 	}
 
 	if err := c.Init(); err != nil {
@@ -25,28 +26,34 @@ func main() {
 	}
 	defer c.Close()
 
-	r := c.Framebuffer.Bounds().Canon()
-	log.Printf("%d x %d", r.Dx(), r.Dy())
-	log.Printf("BPP: %d, Depth: %d, Name: %s", c.PixelFormat.BitsPerPixel, c.PixelFormat.Depth, c.Name)
+	log.Printf("Size: %#v", c.FramebufferSize())
+	log.Printf("BPP: %d, Depth: %d, Name: %s", c.PixelFormat().BitsPerPixel, c.PixelFormat().Depth, c.DesktopName())
 
-	c.SetEncodings(EncodingTypeRaw, EncodingTypePseudoCursor)
+	c.SetEncodings(EncodingTypePseudoCursor, EncodingTypeRaw)
 
-	c.RequestFramebufferUpdate(c.Framebuffer.Bounds().Canon(), false)
+	c.RequestFramebufferUpdate(c.FramebufferSize(), false)
 	go func() {
 		for {
 			time.Sleep(5 * time.Second)
-			c.RequestFramebufferUpdate(c.Framebuffer.Bounds().Canon(), true)
+			c.RequestFramebufferUpdate(c.FramebufferSize(), true)
 		}
 	}()
 
-	for _ = range c.EvCh {
-		log.Printf("Received event")
+	img := image.NewRGBA(c.FramebufferSize())
+	for msg := range c.Messages {
+		log.Printf("Received event: %s", msg)
 
-		f, err := os.Create(time.Now().String() + ".png")
-		if err != nil {
-			log.Fatalf("Could not open file: %s", err)
+		switch x := msg.(type) {
+		case *FramebufferUpdateMessage:
+			x.ApplyAll(img)
+			f, err := os.Create(time.Now().String() + ".png")
+			if err != nil {
+				log.Fatalf("Could not open file: %s", err)
+			}
+			defer f.Close()
+			png.Encode(f, img)
+		default:
+			log.Printf("Unhandled message")
 		}
-		defer f.Close()
-		png.Encode(f, c.Framebuffer)
 	}
 }

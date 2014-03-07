@@ -4,21 +4,38 @@ import (
 	"encoding/binary"
 	"fmt"
 	"image"
-	"image/draw"
 	"io"
 	"log"
 )
 
 type Client struct {
 	io.ReadWriteCloser
-	EvCh chan bool
-	// To be set by server messages
-	PixelFormat PixelFormat
-	Name        string
-	Framebuffer draw.Image
+	// All received messages will be sent to this channel
+	// provided it is non-nil.
+	Messages chan Message
+
+	AdditionalMessageTypes map[MessageType]MessageFactory
+	AdditionalEncodings    map[EncodingType]Encoding
+
+	pixelFormat       PixelFormat
+	name              string
+	framebufferWidth  int
+	framebufferHeight int
 
 	unreadByte    byte
 	hasUnreadByte bool
+}
+
+func (c *Client) PixelFormat() PixelFormat {
+	return c.pixelFormat
+}
+
+func (c *Client) DesktopName() string {
+	return c.name
+}
+
+func (c *Client) FramebufferSize() image.Rectangle {
+	return image.Rect(0, 0, c.framebufferWidth, c.framebufferHeight)
 }
 
 func (c *Client) Read(d []byte) (int, error) {
@@ -90,9 +107,9 @@ func (c *Client) Init() error {
 		return fmt.Errorf("Could not read server init message: %s", err)
 	}
 
-	c.PixelFormat = sim.PixelFormat
-	c.Name = sim.Name
-	c.Framebuffer = image.NewRGBA(image.Rect(0, 0, sim.FramebufferWidth, sim.FramebufferHeight))
+	c.pixelFormat = sim.PixelFormat
+	c.name = sim.Name
+	c.framebufferWidth, c.framebufferHeight = int(sim.FramebufferWidth), int(sim.FramebufferHeight)
 
 	go c.worker()
 
@@ -117,21 +134,22 @@ func (c *Client) worker() {
 		}
 		c.Unread(messageType)
 
-		switch messageType {
-		case 0:
-			fum := &FramebufferUpdateMessage{}
-			err := fum.ReadFrom(c)
-			if err != nil {
-				log.Printf("Could not parse message: %s", err)
+		factory, ok := c.AdditionalMessageTypes[MessageType(messageType)]
+		if !ok {
+			factory, ok = defaultMessageTypes[MessageType(messageType)]
+			if !ok {
+				log.Printf("Unknown message type %d", messageType)
 				return
 			}
-			for _, r := range fum.Rectangles {
-				r.RectangleData.Apply(c.Framebuffer)
-			}
-			c.EvCh <- true
-		default:
-			log.Printf("Unknown message type %d", messageType)
+		}
+		msg := factory()
+		err = msg.ReadFrom(c)
+		if err != nil {
+			log.Printf("Could not parse message: %s", err)
 			return
+		}
+		if c.Messages != nil {
+			c.Messages <- msg
 		}
 	}
 }

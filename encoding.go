@@ -25,7 +25,7 @@ const (
 )
 
 func RawEncoding(c *Client, r *Rectangle) error {
-	bytesPerPixel := c.PixelFormat.BitsPerPixel / 8
+	bytesPerPixel := c.PixelFormat().BitsPerPixel / 8
 	numPixels := r.Width * r.Height
 	numBytes := numPixels * bytesPerPixel
 
@@ -34,7 +34,7 @@ func RawEncoding(c *Client, r *Rectangle) error {
 		Y:           r.Y,
 		Width:       r.Width,
 		Height:      r.Height,
-		PixelFormat: c.PixelFormat,
+		PixelFormat: c.PixelFormat(),
 		Data:        make([]byte, numBytes),
 	}
 	r.RectangleData = rd
@@ -80,7 +80,7 @@ func (rrd RawRectangleData) Apply(img draw.Image) {
 }
 
 func CursorPseudoEncoding(c *Client, r *Rectangle) error {
-	bytesPerPixel := c.PixelFormat.BitsPerPixel / 8
+	bytesPerPixel := c.PixelFormat().BitsPerPixel / 8
 	// TODO: Don't discard cursor image and mask
 	buf := make([]byte, r.Width*r.Height*bytesPerPixel)
 	if _, err := io.ReadFull(c, buf); err != nil {
