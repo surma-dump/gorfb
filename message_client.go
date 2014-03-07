@@ -5,6 +5,16 @@ import (
 	"fmt"
 )
 
+const (
+	ClientMessageTypeSetPixelFormat MessageType = iota
+	_
+	ClientMessageTypeSetEncodings
+	ClientMessageTypeFramebufferUpdateRequest
+	ClientMessageTypeKeyEvent
+	ClientMessageTypePointerEvent
+	ClientMessageTypeClientCutText
+)
+
 type FramebufferUpdateRequestMessage struct {
 	Incremental   bool
 	X, Y          int
@@ -12,14 +22,14 @@ type FramebufferUpdateRequestMessage struct {
 }
 
 type rawFramebufferUpdateRequestMessage struct {
-	MessageType         uint8
+	MessageType         MessageType
 	Incremental         uint8
 	X, Y, Width, Height uint16
 }
 
 func (rfm FramebufferUpdateRequestMessage) WriteTo(c *Client) error {
 	raw := rawFramebufferUpdateRequestMessage{
-		MessageType: 3,
+		MessageType: ClientMessageTypeFramebufferUpdateRequest,
 		Incremental: 0,
 		X:           uint16(rfm.X),
 		Y:           uint16(rfm.Y),
@@ -50,14 +60,14 @@ type SetEncodingsMessage struct {
 }
 
 type rawSetEncodingsMessage struct {
-	MessageType  uint8
+	MessageType  MessageType
 	Padding      byte
 	NumEncodings uint16
 }
 
 func (sem SetEncodingsMessage) WriteTo(c *Client) error {
 	raw := &rawSetEncodingsMessage{
-		MessageType:  2,
+		MessageType:  ClientMessageTypeSetEncodings,
 		NumEncodings: uint16(len(sem.EncodingTypes)),
 	}
 	if err := binary.Write(c, binary.BigEndian, &raw); err != nil {
@@ -73,4 +83,34 @@ func (sem *SetEncodingsMessage) ReadFrom(c *Client) error {
 
 func (sem SetEncodingsMessage) String() string {
 	return fmt.Sprintf("%#v", sem)
+}
+
+type ClientCutTextMessage struct {
+	Text string
+}
+
+type rawClientCutTextMessage struct {
+	MessageType MessageType
+	Padding     [3]byte
+	TextLength  uint32
+}
+
+func (cctm ClientCutTextMessage) WriteTo(c *Client) error {
+	raw := &rawClientCutTextMessage{
+		MessageType: ClientMessageTypeClientCutText,
+		TextLength:  uint32(len(cctm.Text)),
+	}
+	if err := binary.Write(c, binary.BigEndian, raw); err != nil {
+		return err
+	}
+	_, err := c.Write([]byte(cctm.Text))
+	return err
+}
+
+func (cctm *ClientCutTextMessage) ReadFrom(c *Client) error {
+	panic("Not implemented")
+}
+
+func (cctm ClientCutTextMessage) String() string {
+	return fmt.Sprintf("%#v", cctm)
 }

@@ -170,3 +170,9 @@ func (c *Client) SetEncodings(et ...EncodingType) {
 		EncodingTypes: et,
 	}).WriteTo(c)
 }
+
+func (c *Client) SetClipboard(text string) {
+	(&ClientCutTextMessage{
+		Text: text,
+	}).WriteTo(c)
+}

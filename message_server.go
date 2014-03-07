@@ -7,6 +7,13 @@ import (
 	"io"
 )
 
+const (
+	ServerMessageTypeFramebufferUpdate MessageType = iota
+	ServerMessageTypeSetColorMapEntries
+	ServerMessageTypeBell
+	ServerMessageTypeServerCutText
+)
+
 type FramebufferUpdateMessage struct {
 	Rectangles []Rectangle
 }
