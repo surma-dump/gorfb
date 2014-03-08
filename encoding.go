@@ -66,9 +66,17 @@ func (rrd RawRectangleData) Apply(img draw.Image) {
 			case 4:
 				pixelValue := endian.Uint32(pixelSlice)
 				c = color.RGBA{
-					R: uint8((pixelValue >> uint32(rrd.PixelFormat.RedShift)) & uint32(rrd.PixelFormat.RedMax)),
-					G: uint8((pixelValue >> uint32(rrd.PixelFormat.GreenShift)) & uint32(rrd.PixelFormat.GreenMax)),
-					B: uint8((pixelValue >> uint32(rrd.PixelFormat.BlueShift)) & uint32(rrd.PixelFormat.BlueMax)),
+					R: uint8(ShiftAndSlerp(pixelValue, rrd.PixelFormat.RedShift, rrd.PixelFormat.RedMax, 0xFF)),
+					G: uint8(ShiftAndSlerp(pixelValue, rrd.PixelFormat.GreenShift, rrd.PixelFormat.GreenMax, 0xFF)),
+					B: uint8(ShiftAndSlerp(pixelValue, rrd.PixelFormat.BlueShift, rrd.PixelFormat.BlueMax, 0xFF)),
+					A: 255,
+				}
+			case 2:
+				pixelValue := endian.Uint16(pixelSlice)
+				c = color.RGBA{
+					R: uint8(ShiftAndSlerp(uint32(pixelValue), rrd.PixelFormat.RedShift, rrd.PixelFormat.RedMax, 0xFF)),
+					G: uint8(ShiftAndSlerp(uint32(pixelValue), rrd.PixelFormat.GreenShift, rrd.PixelFormat.GreenMax, 0xFF)),
+					B: uint8(ShiftAndSlerp(uint32(pixelValue), rrd.PixelFormat.BlueShift, rrd.PixelFormat.BlueMax, 0xFF)),
 					A: 255,
 				}
 			default:
@@ -77,6 +85,12 @@ func (rrd RawRectangleData) Apply(img draw.Image) {
 			img.Set(x+rrd.X, y+rrd.Y, c)
 		}
 	}
+}
+
+func ShiftAndSlerp(val uint32, shift, inMax, outMax int) uint32 {
+	in := val >> uint(shift) & uint32(inMax)
+	out := float64(in) / float64(inMax) * float64(outMax)
+	return uint32(out)
 }
 
 func CursorPseudoEncoding(c *Client, r *Rectangle) error {
