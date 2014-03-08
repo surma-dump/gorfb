@@ -160,3 +160,42 @@ func TestRawRectangleData_Apply_16BPP(t *testing.T) {
 		t.Fatalf("Expected blue got %#v", img.At(2, 0))
 	}
 }
+
+func TestRawRectangleData_Apply_8BPP_Grayscale(t *testing.T) {
+	rrd := &RawRectangleData{
+		X:      0,
+		Y:      0,
+		Width:  3,
+		Height: 1,
+		PixelFormat: PixelFormat{
+			BitsPerPixel: 8,
+			Depth:        8,
+			BigEndian:    true,
+			TrueColor:    true,
+			RedMax:       255,
+			GreenMax:     255,
+			BlueMax:      255,
+			RedShift:     0,
+			GreenShift:   0,
+			BlueShift:    0,
+		},
+		Data: []byte{
+			0xFF,
+			0x80,
+			0x00,
+		},
+	}
+
+	img := image.NewRGBA(image.Rect(0, 0, 3, 1))
+	rrd.Apply(img)
+
+	if r, g, b, _ := img.At(0, 0).RGBA(); !(r == 0xFFFF && g == 0xFFFF && b == 0xFFFF) {
+		t.Fatalf("Expected white got %#v", img.At(0, 0))
+	}
+	if r, g, b, _ := img.At(1, 0).RGBA(); !(r == 0x8080 && g == 0x8080 && b == 0x8080) {
+		t.Fatalf("Expected gray got %#v", img.At(1, 0))
+	}
+	if r, g, b, _ := img.At(2, 0).RGBA(); !(r == 0x00 && g == 0x00 && b == 0x00) {
+		t.Fatalf("Expected black got %#v", img.At(2, 0))
+	}
+}

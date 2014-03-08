@@ -79,6 +79,14 @@ func (rrd RawRectangleData) Apply(img draw.Image) {
 					B: uint8(ShiftAndSlerp(uint32(pixelValue), rrd.PixelFormat.BlueShift, rrd.PixelFormat.BlueMax, 0xFF)),
 					A: 255,
 				}
+			case 1:
+				pixelValue := uint8(pixelSlice[0])
+				c = color.RGBA{
+					R: uint8(ShiftAndSlerp(uint32(pixelValue), rrd.PixelFormat.RedShift, rrd.PixelFormat.RedMax, 0xFF)),
+					G: uint8(ShiftAndSlerp(uint32(pixelValue), rrd.PixelFormat.GreenShift, rrd.PixelFormat.GreenMax, 0xFF)),
+					B: uint8(ShiftAndSlerp(uint32(pixelValue), rrd.PixelFormat.BlueShift, rrd.PixelFormat.BlueMax, 0xFF)),
+					A: 255,
+				}
 			default:
 				log.Printf("Unsupported BPP %d", rrd.PixelFormat.BitsPerPixel)
 			}
