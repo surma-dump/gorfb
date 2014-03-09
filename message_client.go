@@ -17,9 +17,8 @@ const (
 )
 
 type FramebufferUpdateRequestMessage struct {
-	Incremental   bool
-	X, Y          int
-	Width, Height int
+	Incremental bool
+	Rectangle   image.Rectangle
 }
 
 type rawFramebufferUpdateRequestMessage struct {
@@ -28,14 +27,15 @@ type rawFramebufferUpdateRequestMessage struct {
 	X, Y, Width, Height uint16
 }
 
-func (rfm FramebufferUpdateRequestMessage) WriteTo(c *Client) error {
+func (rfm FramebufferUpdateRequestMessage) WriteTo(c Client) error {
+	r := rfm.Rectangle.Canon()
 	raw := rawFramebufferUpdateRequestMessage{
 		MessageType: ClientMessageTypeFramebufferUpdateRequest,
 		Incremental: 0,
-		X:           uint16(rfm.X),
-		Y:           uint16(rfm.Y),
-		Width:       uint16(rfm.Width),
-		Height:      uint16(rfm.Height),
+		X:           uint16(r.Min.X),
+		Y:           uint16(r.Min.Y),
+		Width:       uint16(r.Dx()),
+		Height:      uint16(r.Dy()),
 	}
 	if rfm.Incremental {
 		raw.Incremental = 1
@@ -48,7 +48,7 @@ func (rfm FramebufferUpdateRequestMessage) WriteTo(c *Client) error {
 	return nil
 }
 
-func (rfm *FramebufferUpdateRequestMessage) ReadFrom(c *Client) error {
+func (rfm *FramebufferUpdateRequestMessage) ReadFrom(c Client) error {
 	panic("Not implemented")
 }
 
@@ -66,7 +66,7 @@ type rawSetEncodingsMessage struct {
 	NumEncodings uint16
 }
 
-func (sem SetEncodingsMessage) WriteTo(c *Client) error {
+func (sem SetEncodingsMessage) WriteTo(c Client) error {
 	raw := &rawSetEncodingsMessage{
 		MessageType:  ClientMessageTypeSetEncodings,
 		NumEncodings: uint16(len(sem.EncodingTypes)),
@@ -78,7 +78,7 @@ func (sem SetEncodingsMessage) WriteTo(c *Client) error {
 	return binary.Write(c, binary.BigEndian, sem.EncodingTypes)
 }
 
-func (sem *SetEncodingsMessage) ReadFrom(c *Client) error {
+func (sem *SetEncodingsMessage) ReadFrom(c Client) error {
 	panic("Not implemented")
 }
 
@@ -96,7 +96,7 @@ type rawClientCutTextMessage struct {
 	TextLength  uint32
 }
 
-func (cctm ClientCutTextMessage) WriteTo(c *Client) error {
+func (cctm ClientCutTextMessage) WriteTo(c Client) error {
 	raw := &rawClientCutTextMessage{
 		MessageType: ClientMessageTypeClientCutText,
 		TextLength:  uint32(len(cctm.Text)),
@@ -108,7 +108,7 @@ func (cctm ClientCutTextMessage) WriteTo(c *Client) error {
 	return err
 }
 
-func (cctm *ClientCutTextMessage) ReadFrom(c *Client) error {
+func (cctm ClientCutTextMessage) ReadFrom(c Client) error {
 	panic("Not implemented")
 }
 
@@ -127,7 +127,7 @@ type rawPointerEventMessage struct {
 	X, Y        uint16
 }
 
-func (pem PointerEventMessage) WriteTo(c *Client) error {
+func (pem PointerEventMessage) WriteTo(c Client) error {
 	raw := &rawPointerEventMessage{
 		MessageType: ClientMessageTypePointerEvent,
 		ButtonMask:  pem.MouseState.Mask(),
@@ -137,7 +137,7 @@ func (pem PointerEventMessage) WriteTo(c *Client) error {
 	return binary.Write(c, binary.BigEndian, raw)
 }
 
-func (pem *PointerEventMessage) ReadFrom(c *Client) error {
+func (pem *PointerEventMessage) ReadFrom(c Client) error {
 	panic("Not implemented")
 }
 
@@ -192,7 +192,7 @@ type rawKeyEventMessage struct {
 	Key         uint32
 }
 
-func (kem KeyEventMessage) WriteTo(c *Client) error {
+func (kem KeyEventMessage) WriteTo(c Client) error {
 	raw := &rawKeyEventMessage{
 		MessageType: ClientMessageTypeKeyEvent,
 		DownFlag:    0,
@@ -204,7 +204,7 @@ func (kem KeyEventMessage) WriteTo(c *Client) error {
 	return binary.Write(c, binary.BigEndian, raw)
 }
 
-func (kem *KeyEventMessage) ReadFrom(c *Client) error {
+func (kem *KeyEventMessage) ReadFrom(c Client) error {
 	panic("Not implemented")
 }
 

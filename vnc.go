@@ -2,6 +2,7 @@ package main
 
 import (
 	"image"
+	"image/png"
 	"log"
 	"net"
 	"os"
@@ -15,39 +16,46 @@ func main() {
 	}
 	defer conn.Close()
 
-	c := &Client{
-		ReadWriteCloser: conn,
-		Messages:        make(chan Message),
-	}
-
+	c := NewClient(conn)
 	if err := c.Init(); err != nil {
 		log.Fatalf("Could not initialize connection: %s", err)
 	}
 	defer c.Close()
 
 	log.Printf("Size: %#v", c.FramebufferSize())
-	log.Printf("BPP: %d, Depth: %d, Name: %s", c.PixelFormat().BitsPerPixel, c.PixelFormat().Depth, c.DesktopName())
+	log.Printf("BPP: %d, Depth: %d", c.PixelFormat().BitsPerPixel, c.PixelFormat().Depth)
 
-	c.SetEncodings(EncodingTypePseudoCursor, EncodingTypeRaw)
+	c.SendMessage(&SetEncodingsMessage{
+		EncodingTypes: []EncodingType{EncodingTypePseudoCursor, EncodingTypeRaw},
+	})
 
-	TypeString(c, "Hello World[Shift+Left][Shift+Left][Ctrl+X][Ctrl+V]!")
-	select {}
+	TypeString(c, "Hello World[Shift+Left][Shift+Left][Ctrl+X][Ctrl+V][Ctrl+V]!")
 
-	c.RequestFramebufferUpdate(c.FramebufferSize(), false)
+	c.SendMessage(&FramebufferUpdateRequestMessage{
+		Incremental: false,
+		Rectangle:   c.FramebufferSize(),
+	})
 	go func() {
 		for {
 			time.Sleep(5 * time.Second)
-			c.RequestFramebufferUpdate(c.FramebufferSize(), true)
+			c.SendMessage(&FramebufferUpdateRequestMessage{
+				Incremental: true,
+				Rectangle:   c.FramebufferSize(),
+			})
 		}
 	}()
 
 	img := image.NewRGBA(c.FramebufferSize())
-	for msg := range c.Messages {
-
+	for msg := range c.MessageChannel() {
 		switch x := msg.(type) {
 		case *FramebufferUpdateMessage:
 			log.Printf("Updating framebuffer")
 			x.ApplyAll(img)
+			func() {
+				f, _ := os.Create(time.Now().String() + ".png")
+				defer f.Close()
+				png.Encode(f, img)
+			}()
 		case *BellMessage:
 			log.Printf("Bell!")
 		case *ServerCutTextMessage:

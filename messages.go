@@ -6,8 +6,8 @@ import (
 )
 
 type Message interface {
-	WriteTo(c *Client) error
-	ReadFrom(c *Client) error
+	WriteTo(c Client) error
+	ReadFrom(c Client) error
 	fmt.Stringer
 }
 
@@ -42,11 +42,11 @@ type rawPixelFormat struct {
 	Padding                         [3]uint8
 }
 
-func (pf PixelFormat) WriteTo(c *Client) error {
+func (pf PixelFormat) WriteTo(c Client) error {
 	panic("Not implemented")
 }
 
-func (pf *PixelFormat) ReadFrom(c *Client) error {
+func (pf *PixelFormat) ReadFrom(c Client) error {
 	var raw rawPixelFormat
 
 	if err := binary.Read(c, binary.BigEndian, &raw); err != nil {

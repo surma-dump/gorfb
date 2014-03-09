@@ -28,11 +28,11 @@ type rawFramebufferUpdateMessage struct {
 	NumRectangles uint16
 }
 
-func (fum FramebufferUpdateMessage) WriteTo(c *Client) error {
+func (fum FramebufferUpdateMessage) WriteTo(c Client) error {
 	panic("Not implemented")
 }
 
-func (fum *FramebufferUpdateMessage) ReadFrom(c *Client) error {
+func (fum *FramebufferUpdateMessage) ReadFrom(c Client) error {
 	var raw rawFramebufferUpdateMessage
 	err := binary.Read(c, binary.BigEndian, &raw)
 	if err != nil {
@@ -49,12 +49,9 @@ func (fum *FramebufferUpdateMessage) ReadFrom(c *Client) error {
 		r.X, r.Y = int(raw.X), int(raw.Y)
 		r.Width, r.Height = int(raw.Width), int(raw.Height)
 
-		enc, ok := c.AdditionalEncodings[EncodingType(raw.EncodingType)]
-		if !ok {
-			enc, ok = defaultEncodings[EncodingType(raw.EncodingType)]
-			if !ok {
-				return fmt.Errorf("Unknown encoding")
-			}
+		enc := c.Encoding(EncodingType(raw.EncodingType))
+		if enc == nil {
+			return fmt.Errorf("Unknown encoding")
 		}
 		err = enc(c, r)
 		if err != nil {
@@ -84,11 +81,11 @@ type rawBellMessage struct {
 	MessageType MessageType
 }
 
-func (bm BellMessage) WriteTo(c *Client) error {
+func (bm BellMessage) WriteTo(c Client) error {
 	panic("Not implemented")
 }
 
-func (bm *BellMessage) ReadFrom(c *Client) error {
+func (bm *BellMessage) ReadFrom(c Client) error {
 	var raw rawBellMessage
 	if err := binary.Read(c, binary.BigEndian, &raw); err != nil {
 		return err
@@ -114,11 +111,11 @@ type rawServerCutTextMessage struct {
 	TextLength  uint32
 }
 
-func (sctm ServerCutTextMessage) WriteTo(c *Client) error {
+func (sctm ServerCutTextMessage) WriteTo(c Client) error {
 	panic("Not implemented")
 }
 
-func (sctm *ServerCutTextMessage) ReadFrom(c *Client) error {
+func (sctm *ServerCutTextMessage) ReadFrom(c Client) error {
 	var raw rawServerCutTextMessage
 	if err := binary.Read(c, binary.BigEndian, &raw); err != nil {
 		return err

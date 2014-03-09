@@ -4,12 +4,18 @@ import (
 	"image"
 )
 
-func PerformClick(c *Client, pos image.Point) {
-	c.SetMouseState(pos, MouseState{}.Set(MouseButtonLeft))
-	c.SetMouseState(pos, MouseState{})
+func PerformClick(c Client, pos image.Point) {
+	c.SendMessage(&PointerEventMessage{
+		Position:   pos,
+		MouseState: MouseState{}.Set(MouseButtonLeft),
+	})
+	c.SendMessage(&PointerEventMessage{
+		Position:   pos,
+		MouseState: MouseState{},
+	})
 }
 
-func PerformDoubleClick(c *Client, pos image.Point) {
+func PerformDoubleClick(c Client, pos image.Point) {
 	PerformClick(c, pos)
 	PerformClick(c, pos)
 }
@@ -22,13 +28,19 @@ const (
 	DirectionDown
 )
 
-func Scroll(c *Client, d Direction) {
-	if d == DirectionUp {
-		c.SetMouseState(c.MousePosition(), MouseState{}.Set(MouseButtonWheelUp))
-	} else if d == DirectionDown {
-		c.SetMouseState(c.MousePosition(), MouseState{}.Set(MouseButtonWheelDown))
+func Scroll(c Client, d Direction) {
+	msg := &PointerEventMessage{
+		Position:   c.LastMousePosition(),
+		MouseState: MouseState{},
 	}
-	c.SetMouseState(c.MousePosition(), MouseState{})
+	if d == DirectionUp {
+		msg.MouseState = msg.MouseState.Set(MouseButtonWheelUp)
+	} else if d == DirectionDown {
+		msg.MouseState = msg.MouseState.Set(MouseButtonWheelDown)
+	}
+	c.SendMessage(msg)
+	msg.MouseState = MouseState{}
+	c.SendMessage(msg)
 }
 
 type state func(s string) (keys []int, remainder string, newState state)
@@ -87,13 +99,20 @@ func composeState(s string) ([]int, string, state) {
 	return append([]int{key}, additionalKeys...), r, nextState
 }
 
-func TypeString(c *Client, s string) {
+func TypeString(c Client, s string) {
 	for keys, r, state := directState(s); state != nil; keys, r, state = state(r) {
-		for _, k := range keys {
-			c.PressKey(k)
+		msg := &KeyEventMessage{
+			Pressed: true,
 		}
 		for _, k := range keys {
-			c.ReleaseKey(k)
+			msg.Key = k
+			c.SendMessage(msg)
+		}
+
+		msg.Pressed = false
+		for _, k := range keys {
+			msg.Key = k
+			c.SendMessage(msg)
 		}
 	}
 }

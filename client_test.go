@@ -21,8 +21,8 @@ func NewClosableBuffer() *ClosableBuffer {
 	}
 }
 
-func TestClient_Unread(t *testing.T) {
-	c := &Client{
+func TestDefaultClient_Unread(t *testing.T) {
+	c := &defaultClient{
 		ReadWriteCloser: NewClosableBuffer(),
 	}
 
@@ -37,11 +37,11 @@ func TestClient_Unread(t *testing.T) {
 		t.Fatalf("Expected %#v, got %#v", expected, buf)
 	}
 
-	c = &Client{
+	c = &defaultClient{
 		ReadWriteCloser: NewClosableBuffer(),
 	}
 	c.Write([]byte("ABC"))
-	c.Unread('0')
+	c.unread('0')
 
 	buf = make([]byte, 3)
 	_, err = io.ReadFull(c, buf)

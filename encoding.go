@@ -10,7 +10,7 @@ import (
 
 // An encoding reads the RectangleData for the given rectangle
 // from the connection
-type Encoding func(c *Client, r *Rectangle) error
+type Encoding func(c Client, r *Rectangle) error
 
 type RectangleData interface {
 	Apply(draw.Image)
@@ -24,7 +24,7 @@ const (
 	EncodingTypePseudoCursor EncodingType = -239
 )
 
-func RawEncoding(c *Client, r *Rectangle) error {
+func RawEncoding(c Client, r *Rectangle) error {
 	bytesPerPixel := c.PixelFormat().BitsPerPixel / 8
 	numPixels := r.Width * r.Height
 	numBytes := numPixels * bytesPerPixel
@@ -101,7 +101,7 @@ func ShiftAndSlerp(val uint32, shift, inMax, outMax int) uint32 {
 	return uint32(out)
 }
 
-func CursorPseudoEncoding(c *Client, r *Rectangle) error {
+func CursorPseudoEncoding(c Client, r *Rectangle) error {
 	bytesPerPixel := c.PixelFormat().BitsPerPixel / 8
 	// TODO: Don't discard cursor image and mask
 	buf := make([]byte, r.Width*r.Height*bytesPerPixel)

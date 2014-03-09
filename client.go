@@ -8,14 +8,30 @@ import (
 	"log"
 )
 
-type Client struct {
+type Client interface {
+	io.ReadWriteCloser
+	SendMessage(msg Message) error
+	MessageChannel() <-chan Message
+	Init() error
+	PixelFormat() PixelFormat
+	FramebufferSize() image.Rectangle
+	LastMousePosition() image.Point
+	Encoding(EncodingType) Encoding
+	Message(MessageType) MessageFactory
+
+	// Can only be called before Init()
+	RegisterEncoding(EncodingType, Encoding)
+	RegisterMessageType(MessageType, MessageFactory)
+}
+
+type defaultClient struct {
 	io.ReadWriteCloser
 	// All received messages will be sent to this channel
 	// provided it is non-nil.
 	Messages chan Message
 
-	AdditionalMessageTypes map[MessageType]MessageFactory
-	AdditionalEncodings    map[EncodingType]Encoding
+	MessageTypes map[MessageType]MessageFactory
+	Encodings    map[EncodingType]Encoding
 
 	pixelFormat       PixelFormat
 	name              string
@@ -27,45 +43,32 @@ type Client struct {
 	hasUnreadByte bool
 }
 
-func (c *Client) PixelFormat() PixelFormat {
-	return c.pixelFormat
-}
+func NewClient(rwc io.ReadWriteCloser) Client {
+	c := &defaultClient{
+		ReadWriteCloser: rwc,
+		Messages:        make(chan Message),
 
-func (c *Client) DesktopName() string {
-	return c.name
-}
-
-func (c *Client) FramebufferSize() image.Rectangle {
-	return image.Rect(0, 0, c.framebufferWidth, c.framebufferHeight)
-}
-
-func (c *Client) MousePosition() image.Point {
-	return c.mousePosition
-}
-
-func (c *Client) Read(d []byte) (int, error) {
-	if len(d) == 0 {
-		return 0, nil
+		MessageTypes: map[MessageType]MessageFactory{},
+		Encodings:    map[EncodingType]Encoding{},
 	}
-	n1 := 0
-	if c.hasUnreadByte {
-		d[0] = c.unreadByte
-		c.hasUnreadByte = false
-		n1 += 1
+	for k, v := range defaultEncodings {
+		c.Encodings[k] = v
 	}
-	n2, err := c.ReadWriteCloser.Read(d[n1:])
-	return n1 + n2, err
+	for k, v := range defaultMessageTypes {
+		c.MessageTypes[k] = v
+	}
+	return c
 }
 
-func (c *Client) Unread(d byte) {
-	if c.hasUnreadByte {
-		panic("Can only unread one byte")
-	}
-	c.hasUnreadByte = true
-	c.unreadByte = d
+func (c *defaultClient) SendMessage(msg Message) error {
+	return msg.WriteTo(c)
 }
 
-func (c *Client) Init() error {
+func (c *defaultClient) MessageChannel() <-chan Message {
+	return c.Messages
+}
+
+func (c *defaultClient) Init() error {
 	pvm := &ProtocolVersionMessage{}
 	if err := pvm.ReadFrom(c); err != nil {
 		return fmt.Errorf("Could not get version number of server: %s", err)
@@ -121,13 +124,63 @@ func (c *Client) Init() error {
 	return nil
 }
 
-func (c *Client) readError() error {
+func (c *defaultClient) PixelFormat() PixelFormat {
+	return c.pixelFormat
+}
+
+func (c *defaultClient) FramebufferSize() image.Rectangle {
+	return image.Rect(0, 0, c.framebufferWidth, c.framebufferHeight)
+}
+
+func (c *defaultClient) LastMousePosition() image.Point {
+	return c.mousePosition
+}
+
+func (c *defaultClient) Read(d []byte) (int, error) {
+	if len(d) == 0 {
+		return 0, nil
+	}
+	n1 := 0
+	if c.hasUnreadByte {
+		d[0] = c.unreadByte
+		c.hasUnreadByte = false
+		n1 += 1
+	}
+	n2, err := c.ReadWriteCloser.Read(d[n1:])
+	return n1 + n2, err
+}
+
+func (c *defaultClient) RegisterEncoding(typ EncodingType, enc Encoding) {
+	c.Encodings[typ] = enc
+}
+
+func (c *defaultClient) RegisterMessageType(typ MessageType, f MessageFactory) {
+	c.MessageTypes[typ] = f
+}
+
+func (c *defaultClient) Encoding(et EncodingType) Encoding {
+	return c.Encodings[et]
+}
+
+func (c *defaultClient) Message(mt MessageType) MessageFactory {
+	return c.MessageTypes[mt]
+}
+
+func (c *defaultClient) unread(d byte) {
+	if c.hasUnreadByte {
+		panic("Can only unread one byte")
+	}
+	c.hasUnreadByte = true
+	c.unreadByte = d
+}
+
+func (c *defaultClient) readError() error {
 	em := &ErrorMessage{}
 	em.ReadFrom(c)
 	return fmt.Errorf("%s", em.Message)
 }
 
-func (c *Client) worker() {
+func (c *defaultClient) worker() {
 	defer c.Close()
 	// TODO: Better error handling (error channel?)
 	for {
@@ -137,69 +190,21 @@ func (c *Client) worker() {
 			log.Printf("Failed reading message: %s", err)
 			return
 		}
-		c.Unread(messageType)
+		c.unread(messageType)
 
-		factory, ok := c.AdditionalMessageTypes[MessageType(messageType)]
-		if !ok {
-			factory, ok = defaultMessageTypes[MessageType(messageType)]
-			if !ok {
-				log.Printf("Unknown message type %d", messageType)
-				return
-			}
+		factory := c.Message(MessageType(messageType))
+		if factory == nil {
+			log.Printf("Unknown message type %d", messageType)
+			return
 		}
 		msg := factory()
 		err = msg.ReadFrom(c)
 		if err != nil {
-			log.Printf("Could not parse message: %s", err)
+			log.Printf("Could not parse message of type %d: %s", messageType, err)
 			return
 		}
 		if c.Messages != nil {
 			c.Messages <- msg
 		}
 	}
-}
-
-func (c *Client) RequestFramebufferUpdate(r image.Rectangle, incremental bool) {
-	r = r.Canon()
-	(&FramebufferUpdateRequestMessage{
-		X:           r.Min.X,
-		Y:           r.Min.Y,
-		Width:       r.Dx(),
-		Height:      r.Dy(),
-		Incremental: incremental,
-	}).WriteTo(c)
-}
-
-func (c *Client) SetEncodings(et ...EncodingType) {
-	(&SetEncodingsMessage{
-		EncodingTypes: et,
-	}).WriteTo(c)
-}
-
-func (c *Client) SetClipboard(text string) {
-	(&ClientCutTextMessage{
-		Text: text,
-	}).WriteTo(c)
-}
-
-func (c *Client) SetMouseState(pos image.Point, ms MouseState) {
-	c.mousePosition = pos
-	(&PointerEventMessage{
-		Position:   pos,
-		MouseState: ms,
-	}).WriteTo(c)
-}
-
-func (c *Client) PressKey(key int) {
-	(&KeyEventMessage{
-		Key:     key,
-		Pressed: true,
-	}).WriteTo(c)
-}
-
-func (c *Client) ReleaseKey(key int) {
-	(&KeyEventMessage{
-		Key:     key,
-		Pressed: false,
-	}).WriteTo(c)
 }

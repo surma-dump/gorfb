@@ -10,12 +10,12 @@ type ProtocolVersionMessage struct {
 	Major, Minor int
 }
 
-func (pvm ProtocolVersionMessage) WriteTo(c *Client) error {
+func (pvm ProtocolVersionMessage) WriteTo(c Client) error {
 	_, err := fmt.Fprintf(c, "RFB %03d.%03d\n", pvm.Major, pvm.Minor)
 	return err
 }
 
-func (pvm *ProtocolVersionMessage) ReadFrom(c *Client) error {
+func (pvm *ProtocolVersionMessage) ReadFrom(c Client) error {
 	_, err := fmt.Fscanf(c, "RFB %03d.%03d\n", &pvm.Major, &pvm.Minor)
 	return err
 }
@@ -47,11 +47,11 @@ type SupportedSecurityTypesMessage struct {
 	SecurityTypeList
 }
 
-func (sstm SupportedSecurityTypesMessage) WriteTo(c *Client) error {
+func (sstm SupportedSecurityTypesMessage) WriteTo(c Client) error {
 	panic("Not implemented")
 }
 
-func (sstm *SupportedSecurityTypesMessage) ReadFrom(c *Client) error {
+func (sstm *SupportedSecurityTypesMessage) ReadFrom(c Client) error {
 	var numSecurityTypes byte
 	if err := binary.Read(c, binary.BigEndian, &numSecurityTypes); err != nil {
 		return err
@@ -73,7 +73,7 @@ type ErrorMessage struct {
 	Message string
 }
 
-func (em ErrorMessage) WriteTo(c *Client) error {
+func (em ErrorMessage) WriteTo(c Client) error {
 	if err := binary.Write(c, binary.BigEndian, int32(len(em.Message))); err != nil {
 		return err
 	}
@@ -82,7 +82,7 @@ func (em ErrorMessage) WriteTo(c *Client) error {
 	return err
 }
 
-func (em *ErrorMessage) ReadFrom(c *Client) error {
+func (em *ErrorMessage) ReadFrom(c Client) error {
 	var messageLength byte
 	if err := binary.Read(c, binary.BigEndian, &messageLength); err != nil {
 		return err
@@ -102,11 +102,11 @@ type ChooseSecurityTypeMessage struct {
 	SecurityType
 }
 
-func (cstm ChooseSecurityTypeMessage) WriteTo(c *Client) error {
+func (cstm ChooseSecurityTypeMessage) WriteTo(c Client) error {
 	return binary.Write(c, binary.BigEndian, cstm.SecurityType)
 }
 
-func (cstm *ChooseSecurityTypeMessage) ReadFrom(c *Client) error {
+func (cstm *ChooseSecurityTypeMessage) ReadFrom(c Client) error {
 	panic("Not implemented")
 }
 
@@ -125,11 +125,11 @@ type SecurityResultMessage struct {
 	SecurityResult
 }
 
-func (srm SecurityResultMessage) WriteTo(c *Client) error {
+func (srm SecurityResultMessage) WriteTo(c Client) error {
 	panic("Not implemented")
 }
 
-func (srm *SecurityResultMessage) ReadFrom(c *Client) error {
+func (srm *SecurityResultMessage) ReadFrom(c Client) error {
 	if err := binary.Read(c, binary.BigEndian, &srm.SecurityResult); err != nil {
 		return err
 	}
@@ -145,7 +145,7 @@ type ClientInitMessage struct {
 	Share bool
 }
 
-func (cim ClientInitMessage) WriteTo(c *Client) error {
+func (cim ClientInitMessage) WriteTo(c Client) error {
 	i := uint8(0)
 	if cim.Share {
 		i = 1
@@ -153,7 +153,7 @@ func (cim ClientInitMessage) WriteTo(c *Client) error {
 	return binary.Write(c, binary.BigEndian, i)
 }
 
-func (cim *ClientInitMessage) ReadFrom(c *Client) error {
+func (cim *ClientInitMessage) ReadFrom(c Client) error {
 	panic("Not implemented")
 }
 
@@ -167,11 +167,11 @@ type ServerInitMessage struct {
 	Name string
 }
 
-func (sim ServerInitMessage) WriteTo(c *Client) error {
+func (sim ServerInitMessage) WriteTo(c Client) error {
 	panic("Not implemented")
 }
 
-func (sim *ServerInitMessage) ReadFrom(c *Client) error {
+func (sim *ServerInitMessage) ReadFrom(c Client) error {
 	var width, height uint16
 	err := binary.Read(c, binary.BigEndian, &width)
 	if err != nil {
