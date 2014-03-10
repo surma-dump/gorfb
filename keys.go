@@ -1,4 +1,4 @@
-package main
+package rfb
 
 // These constants come from /usr/include/X11/keysymdef.h.
 const (

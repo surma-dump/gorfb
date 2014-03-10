@@ -1,10 +1,11 @@
-package main
+package rfb
 
 import (
 	"image"
 	"strings"
 )
 
+// PerformClick presses the left mouse button once.
 func PerformClick(c Client, pos image.Point) {
 	c.SendMessage(&PointerEventMessage{
 		Position:   pos,
@@ -16,11 +17,13 @@ func PerformClick(c Client, pos image.Point) {
 	})
 }
 
+// PerformDoubleClick presses the left mouse button twice in succession.
 func PerformDoubleClick(c Client, pos image.Point) {
 	PerformClick(c, pos)
 	PerformClick(c, pos)
 }
 
+// Direction is an enum type for the Scroll function.
 type Direction int
 
 const (
@@ -29,6 +32,7 @@ const (
 	DirectionDown
 )
 
+// Scroll emits one scroll event in the given direction.
 func Scroll(c Client, d Direction) {
 	msg := &PointerEventMessage{
 		Position:   c.LastMousePosition(),
@@ -58,21 +62,6 @@ func directState(s string) ([]int, string, state) {
 	}
 	return []int{int(s[0])}, s[1:], directState
 }
-
-var (
-	KeyAliases = map[string]int{
-		"CTRL":   xkControlL,
-		"SHIFT":  xkShiftL,
-		"ALT":    xkAltL,
-		"SUPER":  xkSuperL,
-		"META":   xkMetaL,
-		"UP":     xkUp,
-		"DOWN":   xkDown,
-		"LEFT":   xkLeft,
-		"RIGHT":  xkRight,
-		"RETURN": xkReturn,
-	}
-)
 
 func composeState(s string) ([]int, string, state) {
 	keys := make([]int, 0, 4)
@@ -112,6 +101,28 @@ func composeState(s string) ([]int, string, state) {
 	return keys, s, directState
 }
 
+// KeyAliases contains the known aliases for special keys used by
+// TypeString.
+var KeyAliases = map[string]int{
+	"CTRL":   xkControlL,
+	"SHIFT":  xkShiftL,
+	"ALT":    xkAltL,
+	"SUPER":  xkSuperL,
+	"META":   xkMetaL,
+	"UP":     xkUp,
+	"DOWN":   xkDown,
+	"LEFT":   xkLeft,
+	"RIGHT":  xkRight,
+	"RETURN": xkReturn,
+}
+
+// TypeString types the given string on the keyboard. Combinations of
+// of keys can be specified by using brackets.
+//
+// Example:
+//
+//    "Hel[Shift+Left][Ctrl+C][Ctrl+V][Ctrl+V]o World!"
+//
 func TypeString(c Client, s string) {
 	for keys, r, state := directState(s); state != nil; keys, r, state = state(r) {
 		msg := &KeyEventMessage{

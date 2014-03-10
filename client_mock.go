@@ -1,9 +1,12 @@
-package main
+package rfb
 
 import (
 	"image"
 )
 
+// ClientMock mocks each function of the Client interface.
+// If a function is nil, a sane default value will be returned,
+// otherwise the given function will be called.
 type ClientMock struct {
 	ReadFunc  func([]byte) (int, error)
 	WriteFunc func([]byte) (int, error)

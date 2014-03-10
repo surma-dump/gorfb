@@ -1,34 +1,40 @@
-package main
+package rfb
 
 import (
 	"encoding/binary"
 	"fmt"
 )
 
+// Message is the generic interface for both client-to-server and
+// server-to-client messages.
 type Message interface {
 	WriteTo(c Client) error
 	ReadFrom(c Client) error
 	fmt.Stringer
 }
 
+// MessageFactory is a function creating a new instance of a
+// message. It is used by the parser to call ReadFrom() afterwards.
 type MessageFactory func() Message
 
 type MessageType uint8
 
-var (
-	defaultMessageTypes = map[MessageType]MessageFactory{
-		ServerMessageTypeFramebufferUpdate: FramebufferUpdateMessageFactory,
-		ServerMessageTypeBell:              BellMessageFactory,
-		ServerMessageTypeServerCutText:     ServerCutTextMessageFactory,
-	}
-)
-
+//PixelFormat describes the format of the framebuffer.
 type PixelFormat struct {
-	BitsPerPixel                    int
-	Depth                           int
-	BigEndian                       bool
-	TrueColor                       bool
-	RedMax, GreenMax, BlueMax       int
+	// Bits per pixel. Has to be either 8, 16 or 32.
+	BitsPerPixel int
+	// Number of bits actually. Ignored.
+	Depth int
+	// True if the pixel bytes are given in big-endian order.
+	BigEndian bool
+	// True if {Red,Green,Blue}{Max,Shift} are used to extract
+	// actual RGB values from the pixel data. Otherwise, a palette
+	// is set and used by the server.
+	TrueColor bool
+	// Maximum value for each of the colors
+	RedMax, GreenMax, BlueMax int
+	// Number of bits to shift right to the colors LSB to the
+	// bytes LSB.
 	RedShift, GreenShift, BlueShift int
 }
 
@@ -62,6 +68,8 @@ func (pf *PixelFormat) ReadFrom(c Client) error {
 	return nil
 }
 
+// Rectangle describes a rectangle as described in the RFC, containing
+// encoded pixel data. Not to be confused with image.Rectangle.
 type Rectangle struct {
 	X, Y          int
 	Width, Height int

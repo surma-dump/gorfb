@@ -1,4 +1,4 @@
-package main
+package rfb
 
 import (
 	"encoding/binary"
@@ -8,19 +8,39 @@ import (
 	"log"
 )
 
+// Client models a RFB parser for the client side.
 type Client interface {
 	io.ReadWriteCloser
+	// Sends the given message to the server
 	SendMessage(msg Message) error
+	// Returns the channel on which each received message will be
+	// sent to. It's the user's responsibility to make sure that
+	// the channel does not lock up.
 	MessageChannel() <-chan Message
+	// Init performs the handshake. It must be called before
+	// any messages can be received or sent.
 	Init() error
+	// PixelFormat returns the current pixel format used
+	// by the framebuffer.
 	PixelFormat() PixelFormat
+	// FramebufferSize returns the size of the framebuffer.
 	FramebufferSize() image.Rectangle
-	LastMousePosition() image.Point
+	// Encoding looks up an encoding by the given encoding type or
+	// returns nil. An encoding will only be found if it is either
+	// in the DefaultEncodings map or has been registered using
+	// RegisterEncoding.
 	Encoding(EncodingType) Encoding
+	// Message looks up a message by the given message type or returns
+	// nil. A message type will only be found if it is either in
+	// the DefaultMessageTypes map or has been registered using
+	// RegisterMessageType.
 	Message(MessageType) MessageFactory
 
-	// Can only be called before Init()
+	// RegisterEncoding registers a new encoding with this client.
+	// May only be called before Init()
 	RegisterEncoding(EncodingType, Encoding)
+	// RegisterMessageType registers a new message type with this client.
+	// May only be called before Init()
 	RegisterMessageType(MessageType, MessageFactory)
 }
 
@@ -43,6 +63,8 @@ type defaultClient struct {
 	hasUnreadByte bool
 }
 
+// NewClient starts a new client on the given ReadWriteCloser.
+// Call Init before starting to use it.
 func NewClient(rwc io.ReadWriteCloser) Client {
 	c := &defaultClient{
 		ReadWriteCloser: rwc,
@@ -130,10 +152,6 @@ func (c *defaultClient) PixelFormat() PixelFormat {
 
 func (c *defaultClient) FramebufferSize() image.Rectangle {
 	return image.Rect(0, 0, c.framebufferWidth, c.framebufferHeight)
-}
-
-func (c *defaultClient) LastMousePosition() image.Point {
-	return c.mousePosition
 }
 
 func (c *defaultClient) Read(d []byte) (int, error) {

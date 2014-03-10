@@ -1,4 +1,4 @@
-package main
+package rfb
 
 import (
 	"encoding/binary"
@@ -9,9 +9,13 @@ import (
 )
 
 // An encoding reads the RectangleData for the given rectangle
-// from the connection
+// from the connection.
 type Encoding func(c Client, r *Rectangle) error
 
+// RectangleData is the image data contained in a rectangle.
+// As it might be referencing other portions of the already
+// existing framebuffer, it can only be applied to the framebuffer
+// and not be inspected in isolation.
 type RectangleData interface {
 	Apply(draw.Image)
 }
@@ -19,11 +23,13 @@ type RectangleData interface {
 type EncodingType int32
 
 const (
-	EncodingTypeRaw EncodingType = iota
+	EncodingTypeRaw EncodingType = 0
 
 	EncodingTypePseudoCursor EncodingType = -239
 )
 
+// RawEncoding holds the straight-forward pixel data for
+// the given rectangle.
 func RawEncoding(c Client, r *Rectangle) error {
 	bytesPerPixel := c.PixelFormat().BitsPerPixel / 8
 	numPixels := r.Width * r.Height
@@ -66,25 +72,25 @@ func (rrd RawRectangleData) Apply(img draw.Image) {
 			case 4:
 				pixelValue := endian.Uint32(pixelSlice)
 				c = color.RGBA{
-					R: uint8(ShiftAndSlerp(pixelValue, rrd.PixelFormat.RedShift, rrd.PixelFormat.RedMax, 0xFF)),
-					G: uint8(ShiftAndSlerp(pixelValue, rrd.PixelFormat.GreenShift, rrd.PixelFormat.GreenMax, 0xFF)),
-					B: uint8(ShiftAndSlerp(pixelValue, rrd.PixelFormat.BlueShift, rrd.PixelFormat.BlueMax, 0xFF)),
+					R: uint8(shiftAndSlerp(pixelValue, rrd.PixelFormat.RedShift, rrd.PixelFormat.RedMax, 0xFF)),
+					G: uint8(shiftAndSlerp(pixelValue, rrd.PixelFormat.GreenShift, rrd.PixelFormat.GreenMax, 0xFF)),
+					B: uint8(shiftAndSlerp(pixelValue, rrd.PixelFormat.BlueShift, rrd.PixelFormat.BlueMax, 0xFF)),
 					A: 255,
 				}
 			case 2:
 				pixelValue := endian.Uint16(pixelSlice)
 				c = color.RGBA{
-					R: uint8(ShiftAndSlerp(uint32(pixelValue), rrd.PixelFormat.RedShift, rrd.PixelFormat.RedMax, 0xFF)),
-					G: uint8(ShiftAndSlerp(uint32(pixelValue), rrd.PixelFormat.GreenShift, rrd.PixelFormat.GreenMax, 0xFF)),
-					B: uint8(ShiftAndSlerp(uint32(pixelValue), rrd.PixelFormat.BlueShift, rrd.PixelFormat.BlueMax, 0xFF)),
+					R: uint8(shiftAndSlerp(uint32(pixelValue), rrd.PixelFormat.RedShift, rrd.PixelFormat.RedMax, 0xFF)),
+					G: uint8(shiftAndSlerp(uint32(pixelValue), rrd.PixelFormat.GreenShift, rrd.PixelFormat.GreenMax, 0xFF)),
+					B: uint8(shiftAndSlerp(uint32(pixelValue), rrd.PixelFormat.BlueShift, rrd.PixelFormat.BlueMax, 0xFF)),
 					A: 255,
 				}
 			case 1:
 				pixelValue := uint8(pixelSlice[0])
 				c = color.RGBA{
-					R: uint8(ShiftAndSlerp(uint32(pixelValue), rrd.PixelFormat.RedShift, rrd.PixelFormat.RedMax, 0xFF)),
-					G: uint8(ShiftAndSlerp(uint32(pixelValue), rrd.PixelFormat.GreenShift, rrd.PixelFormat.GreenMax, 0xFF)),
-					B: uint8(ShiftAndSlerp(uint32(pixelValue), rrd.PixelFormat.BlueShift, rrd.PixelFormat.BlueMax, 0xFF)),
+					R: uint8(shiftAndSlerp(uint32(pixelValue), rrd.PixelFormat.RedShift, rrd.PixelFormat.RedMax, 0xFF)),
+					G: uint8(shiftAndSlerp(uint32(pixelValue), rrd.PixelFormat.GreenShift, rrd.PixelFormat.GreenMax, 0xFF)),
+					B: uint8(shiftAndSlerp(uint32(pixelValue), rrd.PixelFormat.BlueShift, rrd.PixelFormat.BlueMax, 0xFF)),
 					A: 255,
 				}
 			default:
@@ -95,12 +101,17 @@ func (rrd RawRectangleData) Apply(img draw.Image) {
 	}
 }
 
-func ShiftAndSlerp(val uint32, shift, inMax, outMax int) uint32 {
+func shiftAndSlerp(val uint32, shift, inMax, outMax int) uint32 {
 	in := val >> uint(shift) & uint32(inMax)
 	out := float64(in) / float64(inMax) * float64(outMax)
 	return uint32(out)
 }
 
+// CursorPseudoEncoding is a so-called pseudo encoding since it
+// does not contain actually framebuffer content but just
+// the position of the mouse. Announcing to the server that this
+// encoding is supported will usually make the server stop rendering
+// the mouse.
 func CursorPseudoEncoding(c Client, r *Rectangle) error {
 	bytesPerPixel := c.PixelFormat().BitsPerPixel / 8
 	// TODO: Don't discard cursor image and mask
@@ -120,7 +131,7 @@ type CursorRectangleData struct{}
 
 func (crd *CursorRectangleData) Apply(img draw.Image) {}
 
-var defaultEncodings = map[EncodingType]Encoding{
+var DefaultEncodings = map[EncodingType]Encoding{
 	EncodingTypeRaw:          RawEncoding,
 	EncodingTypePseudoCursor: CursorPseudoEncoding,
 }

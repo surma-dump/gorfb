@@ -1,4 +1,4 @@
-package main
+package rfb
 
 import (
 	"encoding/binary"
@@ -8,7 +8,6 @@ import (
 
 const (
 	ClientMessageTypeSetPixelFormat MessageType = iota
-	_
 	ClientMessageTypeSetEncodings
 	ClientMessageTypeFramebufferUpdateRequest
 	ClientMessageTypeKeyEvent
@@ -16,6 +15,21 @@ const (
 	ClientMessageTypeClientCutText
 )
 
+var (
+	DefaultMessageTypes = map[MessageType]MessageFactory{
+		ServerMessageTypeFramebufferUpdate: FramebufferUpdateMessageFactory,
+		ServerMessageTypeBell:              BellMessageFactory,
+		ServerMessageTypeServerCutText:     ServerCutTextMessageFactory,
+	}
+)
+
+// FramebufferUpdateRequestMessage requests an update on the state
+// of the framebuffer. If incremental is false, the complete
+// framebuffer is sent. If incremental is true, the server assumes
+// that the client is still in posession of the last framebuffer
+// and only send the data needed to reconstruct the new content.
+// Keep in mind that some server implementations send a black screen
+// if incremental is false to assume a "well-defined state".
 type FramebufferUpdateRequestMessage struct {
 	Incremental bool
 	Rectangle   image.Rectangle
@@ -56,6 +70,9 @@ func (rfm FramebufferUpdateRequestMessage) String() string {
 	return fmt.Sprintf("%#v", rfm)
 }
 
+// SetEncodingsMessage announces the supported encodings to the server.
+// Order is correlated with preference by the client. The server is free
+// to ignore it. RawEncoding is implicitly supported.
 type SetEncodingsMessage struct {
 	EncodingTypes []EncodingType
 }
@@ -86,6 +103,7 @@ func (sem SetEncodingsMessage) String() string {
 	return fmt.Sprintf("%#v", sem)
 }
 
+// ClientCutTextMessage sets the servers clipboard contents.
 type ClientCutTextMessage struct {
 	Text string
 }
@@ -116,6 +134,7 @@ func (cctm ClientCutTextMessage) String() string {
 	return fmt.Sprintf("%#v", cctm)
 }
 
+// PointerEventMessage changes the state of the pointer device.
 type PointerEventMessage struct {
 	MouseState MouseState
 	Position   image.Point
@@ -155,10 +174,12 @@ const (
 	MouseButton7
 )
 
+// MouseState holds the state of the 8 mouse buttons.
 type MouseState struct {
 	Buttons [8]bool
 }
 
+// Mask converts the a MouseState to a bit mask as defined by the RFC.
 func (ms MouseState) Mask() uint8 {
 	mask := uint8(0)
 	for i, b := range ms.Buttons {
@@ -170,16 +191,19 @@ func (ms MouseState) Mask() uint8 {
 	return mask
 }
 
+// Set sets the given mouse button to "pressed".
 func (ms MouseState) Set(idx int) MouseState {
 	ms.Buttons[idx] = true
 	return ms
 }
 
+// Unset sets the given mouse button to "released".
 func (ms MouseState) Unset(idx int) MouseState {
 	ms.Buttons[idx] = false
 	return ms
 }
 
+// KeyEvent changes the state of a single keyboard key.
 type KeyEventMessage struct {
 	Key     int
 	Pressed bool

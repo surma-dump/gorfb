@@ -1,4 +1,4 @@
-package main
+package rfb
 
 import (
 	"encoding/binary"
@@ -14,6 +14,8 @@ const (
 	ServerMessageTypeServerCutText
 )
 
+// FramebufferUpdateMessage contains the necessary data to reconstruct
+// the contents of the framebuffer.
 type FramebufferUpdateMessage struct {
 	Rectangles []Rectangle
 }
@@ -71,6 +73,7 @@ func (fum FramebufferUpdateMessage) ApplyAll(img draw.Image) {
 	}
 }
 
+// BellMessage is sent when a bell/alarm is being rang on the server.
 type BellMessage struct{}
 
 func BellMessageFactory() Message {
@@ -97,6 +100,8 @@ func (bm BellMessage) String() string {
 	return fmt.Sprintf("BELL!")
 }
 
+// ServerCutTextMessage announces that the contents of the clipboard
+// has changed.
 type ServerCutTextMessage struct {
 	Text string
 }
